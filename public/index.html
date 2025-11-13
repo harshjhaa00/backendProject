@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backend Project</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+      margin: 0;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    main {
+      display: grid;
+      gap: 2rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    section {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 25px -15px rgba(15, 23, 42, 0.2);
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+    form {
+      display: grid;
+      gap: 0.75rem;
+    }
+    label {
+      font-weight: 600;
+    }
+    input, button, textarea {
+      font: inherit;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #cbd5f5;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    button {
+      background: #4f46e5;
+      color: #fff;
+      cursor: pointer;
+      border: none;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #4338ca;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow: auto;
+    }
+    .row {
+      display: grid;
+      gap: 1.5rem;
+    }
+    @media (min-width: 768px) {
+      .row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Welcome to the Backend Project</h1>
+      <p>
+        Use the forms below to exercise the API. Access tokens are stored in
+        <code>localStorage</code> and refresh tokens are maintained by the server in an HTTP-only cookie.
+        Review the inline comments to follow the flow.
+      </p>
+    </header>
+
+    <div class="row">
+      <section>
+        <h2>Register</h2>
+        <form id="register-form">
+          <label>
+            Name
+            <input type="text" name="name" required />
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required minlength="8" />
+          </label>
+          <button type="submit">Create Account</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Login</h2>
+        <form id="login-form">
+          <label>
+            Email
+            <input type="email" name="email" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required />
+          </label>
+          <button type="submit">Login</button>
+        </form>
+      </section>
+    </div>
+
+    <section>
+      <h2>API Demonstrations</h2>
+      <div class="row">
+        <div>
+          <button id="fetch-message">Fetch Public Message</button>
+        </div>
+        <div>
+          <button id="fetch-profile">Fetch Profile (Protected)</button>
+        </div>
+        <div>
+          <button id="refresh-token">Refresh Access Token</button>
+        </div>
+        <div>
+          <button id="logout">Logout</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Submit Message</h2>
+      <form id="submit-form">
+        <label>
+          Name
+          <input type="text" name="name" required />
+        </label>
+        <label>
+          Email
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          Message
+          <textarea name="message" rows="4" required minlength="5"></textarea>
+        </label>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Response Log</h2>
+      <pre id="response-log">// Interactions will appear here...</pre>
+    </section>
+  </main>
+
+  <!-- Utility script to help with logging responses -->
+  <script>
+    const responseLog = document.getElementById('response-log');
+    const apiBase = '/api';
+
+    const setAccessToken = (token) => {
+      if (token) {
+        window.localStorage.setItem('accessToken', token);
+      }
+    };
+
+    const getAccessToken = () => window.localStorage.getItem('accessToken');
+
+    const logResponse = (title, payload) => {
+      const timestamp = new Date().toLocaleTimeString();
+      responseLog.textContent = [
+        `// ${timestamp} — ${title}`,
+        JSON.stringify(payload, null, 2),
+        '',
+        responseLog.textContent
+      ].join('\n');
+    };
+
+    const handleRequest = async (title, input) => {
+      try {
+        const { url, ...options } = input;
+        const response = await fetch(url, {
+          credentials: 'include',
+          ...options,
+        });
+        const data = await response.json().catch(() => ({}));
+        logResponse(title, { status: response.status, data });
+        if (data.tokens?.accessToken) {
+          setAccessToken(data.tokens.accessToken);
+        }
+        return { response, data };
+      } catch (error) {
+        logResponse(title, { error: error.message });
+        return { error };
+      }
+    };
+  </script>
+
+  <!-- Script wiring the register form -->
+  <script>
+    document.getElementById('register-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const payload = Object.fromEntries(form.entries());
+
+      await handleRequest('Register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        url: `${apiBase}/auth/register`
+      });
+    });
+  </script>
+
+  <!-- Script wiring the login form -->
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const payload = Object.fromEntries(form.entries());
+
+      await handleRequest('Login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        url: `${apiBase}/auth/login`
+      });
+    });
+  </script>
+
+  <!-- Script handling the public API call -->
+  <script>
+    document.getElementById('fetch-message').addEventListener('click', async () => {
+      await handleRequest('Fetch public message', {
+        method: 'GET',
+        url: `${apiBase}/message`
+      });
+    });
+  </script>
+
+  <!-- Script handling the protected API call -->
+  <script>
+    document.getElementById('fetch-profile').addEventListener('click', async () => {
+      const token = getAccessToken();
+      if (!token) {
+        logResponse('Fetch profile', { error: 'No access token found. Please login first.' });
+        return;
+      }
+
+      await handleRequest('Fetch profile', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        url: `${apiBase}/user/profile`
+      });
+    });
+  </script>
+
+  <!-- Script handling a token refresh -->
+  <script>
+    document.getElementById('refresh-token').addEventListener('click', async () => {
+      const { data } = await handleRequest('Refresh token', {
+        method: 'POST',
+        url: `${apiBase}/auth/refresh`
+      });
+
+      if (data?.tokens?.accessToken) {
+        logResponse('Refresh token', { message: 'Access token rotated successfully.' });
+      }
+    });
+  </script>
+
+  <!-- Script wiring logout -->
+  <script>
+    document.getElementById('logout').addEventListener('click', async () => {
+      await handleRequest('Logout', {
+        method: 'POST',
+        url: `${apiBase}/auth/logout`
+      });
+      window.localStorage.removeItem('accessToken');
+    });
+  </script>
+
+  <!-- Script wiring message submission -->
+  <script>
+    document.getElementById('submit-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const payload = Object.fromEntries(form.entries());
+
+      await handleRequest('Submit message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        url: `${apiBase}/submit`
+      });
+    });
+  </script>
+</body>
+</html>
+
